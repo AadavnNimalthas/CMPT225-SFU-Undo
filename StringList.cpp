@@ -1,3 +1,8 @@
+/*
+ * Aadavn Nimalthas
+ * 10/03/25
+ * Methods for the StringList Class
+ */
 #include "StringList.h"
 #include <stdexcept>
 #include <iostream>
@@ -199,6 +204,47 @@ void StringList::undo()
     Op op;
     undo_.pop(op);
 
+    // Apply the inverse operation depending on its type
+    switch (op.type) {
+        case OP_REMOVE_AT:
+            // Inverse of insert: remove the element at this index
+            remove(op.index);
+            break;
+
+        case OP_INSERT_AT:
+            // Inverse of remove: reinsert the old value at this index
+            insertBefore(op.index, op.value);
+            break;
+
+        case OP_SET_AT:
+            // Inverse of set: restore the old value at this index
+            set(op.index, op.value);
+            break;
+
+        case OP_SET_LIST:
+            // Inverse of assignment or removeAll: restore snapshot of full list
+            delete[] arr;
+            capacity = (op.snapLen > 0 ? op.snapLen : 1);
+            arr = new string[capacity];
+            for (int i = 0; i < op.snapLen; i++) {
+                arr[i] = op.snapshot[i];
+            }
+            n = op.snapLen;
+
+            // Free snapshot memory owned by the op
+            delete[] op.snapshot;
+            op.snapshot = nullptr;
+            op.snapLen = 0;
+            break;
+
+        default:
+            // Unknown operation type — do nothing
+            break;
+    }
+
+    // Restore recording flag so future user operations
+    // are recorded again
+    recordingEnabled_ = prevRecording;
 }
 
 

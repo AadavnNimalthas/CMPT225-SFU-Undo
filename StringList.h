@@ -1,3 +1,9 @@
+/*
+ * Aadavn Nimalthas
+ * 10/03/25
+ * A Class for String List
+ */
+
 #pragma once
 
 #include <string>
