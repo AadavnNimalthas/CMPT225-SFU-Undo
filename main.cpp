@@ -159,7 +159,6 @@ int main() {
     }
 
     // --- Test 8: undo on empty stack (no-op) ---
-    // --- Test 8: undo on empty stack (no-op) ---
     {
         ++total;
         StringList lst;                      // empty list, no history recorded
