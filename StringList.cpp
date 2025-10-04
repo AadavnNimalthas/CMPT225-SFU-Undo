@@ -30,7 +30,7 @@ StringList& StringList::operator=(const StringList& other)
 {
 	if (&other != this)
 	{
-		// Record inverse: restore whole current list
+		// Record inverse to restore whole current list
 		if (recordingEnabled_) {
 			Operation op;
 			op.type = Operation::SET_LIST;
@@ -89,7 +89,7 @@ int StringList::index(string s) const
 	}
 }
 
-// Returns true iff the given string is in the list
+// Returns true if the given string is in the list
 bool StringList::contains(string str) const
 {
 	return !(index(str) == -1);
@@ -134,7 +134,6 @@ string StringList::toString() const
 	return result + "}";
 }
 
-
 // MUTATORS
 
 // ***UNDOABLE
@@ -142,6 +141,16 @@ string StringList::toString() const
 void StringList::set(int i, string str)
 {
 	checkBounds(i, "set");
+
+	// Record inverse to set back to old value
+	if (recordingEnabled_) {
+		Operation op;
+		op.type = Operation::SET_AT;
+		op.index = i;
+		op.value = arr[i]; // old value
+		undo_.push(op);
+	}
+
 	arr[i] = str;
 }
 
@@ -149,13 +158,22 @@ void StringList::set(int i, string str)
 // Inserts the given string *before* the given index
 void StringList::insertBefore(int pos, string str)
 {
-	// Doesn't use checkBounds because it's okay to insert at the end
+	// It's okay to insert at the end
 	if (pos < 0 || pos > size()) {
 		throw out_of_range("StringList::insertBefore index out of bounds");
 	}
+
+	// Record inverse to removing at pos will undo this insert
+	if (recordingEnabled_) {
+		Operation op;
+		op.type = Operation::REMOVE_AT;
+		op.index = pos;
+		undo_.push(op);
+	}
+
 	checkCapacity();
 	for (int i = n; i > pos; i--) {
-		arr[i] = arr[i-1];
+		arr[i] = arr[i - 1];
 	}
 	arr[pos] = str;
 	n++;
@@ -182,7 +200,18 @@ void StringList::insertBack(string str)
 void StringList::remove(int pos)
 {
 	checkBounds(pos, "remove");
-	for (int i = pos; i < n; i++) {
+
+	// Record inverse to reinsert the removed value at the same index
+	if (recordingEnabled_) {
+		Operation op;
+		op.type = Operation::INSERT_AT;
+		op.index = pos;
+		op.value = arr[pos]; // value being removed
+		undo_.push(op);
+	}
+
+	// Shift down safely (stop at n-2 so arr[i+1] is valid)
+	for (int i = pos; i < n - 1; i++) {
 		arr[i] = arr[i + 1];
 	}
 	n--;
@@ -192,6 +221,18 @@ void StringList::remove(int pos)
 // Empties the list
 void StringList::removeAll()
 {
+	// Record inverse to restore entire list
+	if (recordingEnabled_) {
+		Operation op;
+		op.type = Operation::SET_LIST;
+		op.snapLen = n;
+		if (n > 0) {
+			op.snapshot = new string[n];
+			for (int i = 0; i < n; ++i) op.snapshot[i] = arr[i];
+		}
+		undo_.push(op);
+	}
+
 	for (int i = 0; i < n; i++) {
 		arr[i] = "";
 	}
