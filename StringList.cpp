@@ -28,8 +28,20 @@ StringList::StringList(const StringList& other)
 // Overloaded assignment operator
 StringList& StringList::operator=(const StringList& other)
 {
-	if(&other != this)
+	if (&other != this)
 	{
+		// Record inverse: restore whole current list
+		if (recordingEnabled_) {
+			Operation op;
+			op.type = Operation::SET_LIST;
+			op.snapLen = n;
+			if (n > 0) {
+				op.snapshot = new string[n];
+				for (int i = 0; i < n; ++i) op.snapshot[i] = arr[i];
+			}
+			undo_.push(op);
+		}
+
 		delete[] arr;
 		copyList(other);
 	}
@@ -189,62 +201,55 @@ void StringList::removeAll()
 // Undoes the last operation that modified the list
 void StringList::undo()
 {
-    // If there is nothing to undo, just return quietly
-    if (undo_.empty()) {
-        return;
-    }
+	// If there is nothing to undo, just return quietly
+	if (undo_.empty()) {
+		return;
+	}
 
-    // Temporarily turn off recording so that the inverse
-    // operations we are about to perform do not get added
-    // back into the undo stack.
-    bool prevRecording = recordingEnabled_;
-    recordingEnabled_ = false;
+	// Temporarily turn off recording so that inverse ops aren’t recorded
+	bool prevRecording = recordingEnabled_;
+	recordingEnabled_ = false;
 
-    // Pop the most recent operation from the stack
-    Op op;
-    undo_.pop(op);
+	// Pop the most recent operation
+	Operation op;
+	undo_.pop(op);
 
-    // Apply the inverse operation depending on its type
-    switch (op.type) {
-        case OP_REMOVE_AT:
-            // Inverse of insert: remove the element at this index
-            remove(op.index);
-            break;
+	// Apply the inverse operation
+	switch (op.type) {
+		case Operation::REMOVE_AT:
+			// Inverse of insert: remove the element at this index
+			remove(op.index);
+			break;
 
-        case OP_INSERT_AT:
-            // Inverse of remove: reinsert the old value at this index
-            insertBefore(op.index, op.value);
-            break;
+		case Operation::INSERT_AT:
+			// Inverse of remove: reinsert the old value at this index
+			insertBefore(op.index, op.value);
+			break;
 
-        case OP_SET_AT:
-            // Inverse of set: restore the old value at this index
-            set(op.index, op.value);
-            break;
+		case Operation::SET_AT:
+			// Inverse of set: restore the old value
+			set(op.index, op.value);
+			break;
 
-        case OP_SET_LIST:
-            // Inverse of assignment or removeAll: restore snapshot of full list
-            delete[] arr;
-            capacity = (op.snapLen > 0 ? op.snapLen : 1);
-            arr = new string[capacity];
-            for (int i = 0; i < op.snapLen; i++) {
-                arr[i] = op.snapshot[i];
-            }
-            n = op.snapLen;
+		case Operation::SET_LIST:
+			// Inverse of assignment/removeAll: restore snapshot
+			delete[] arr;
+			capacity = (op.snapLen > 0 ? op.snapLen : 1);
+			arr = new string[capacity];
+			for (int i = 0; i < op.snapLen; i++) {
+				arr[i] = op.snapshot[i];
+			}
+			n = op.snapLen;
 
-            // Free snapshot memory owned by the op
-            delete[] op.snapshot;
-            op.snapshot = nullptr;
-            op.snapLen = 0;
-            break;
+			// Free snapshot memory
+			delete[] op.snapshot;
+			op.snapshot = nullptr;
+			op.snapLen = 0;
+			break;
+	}
 
-        default:
-            // Unknown operation type — do nothing
-            break;
-    }
-
-    // Restore recording flag so future user operations
-    // are recorded again
-    recordingEnabled_ = prevRecording;
+	// Re-enable recording for future operations
+	recordingEnabled_ = prevRecording;
 }
 
 
