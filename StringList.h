@@ -119,10 +119,10 @@ private:
 	int capacity;
 	string* arr;
 
-	 // Represents the inverse of a single modifying operation on the list
+	// Represents the inverse of a single modifying operation on the list
     // POST: Stores enough information to revert one change (insert, remove, set, or whole-list replace)
     struct Operation {
-        // The type of inverse operation
+        // The type of inverse operation using enums
         enum Type { REMOVE_AT, INSERT_AT, SET_AT, SET_LIST } type;
 
         int index = 0;          // Index where the operation applies (for insert/remove/set)
